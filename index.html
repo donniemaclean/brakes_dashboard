@@ -157,52 +157,48 @@ function Dashboard() {
   const [sp, setSp] = useState("all");
   const [detail, setDetail] = useState(null);
 
-  // Determine current week from actual calendar date, not data
+  // Determine current week from actual calendar date
   const now = new Date();
-  const jan1 = new Date(now.getFullYear(), 0, 1);
-  const dayOfYear = Math.floor((now - jan1) / 86400000) + 1;
-  const isoWeek = (() => {
-    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  })();
+  const _d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  _d.setUTCDate(_d.getUTCDate() + 4 - (_d.getUTCDay() || 7));
+  const _yearStart = new Date(Date.UTC(_d.getUTCFullYear(), 0, 1));
+  const isoWeek = Math.ceil((((_d.getTime() - _yearStart.getTime()) / 86400000) + 1) / 7);
   const isoYear = now.getFullYear();
-  const currentMonday = new Date(now);
-  currentMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const dayOfWeek = (now.getDay() + 6) % 7; // 0=Mon, 6=Sun
+  const currentMondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+  const currentMondayStr = currentMondayDate.toISOString().slice(0, 10);
+  const prevWkNum = isoWeek === 1 ? 52 : isoWeek - 1;
+  const prevWkYear = isoWeek === 1 ? isoYear - 1 : isoYear;
 
   // Find data rows by actual week logic
-  const thisWeekRow = sd.find(r => r.y === isoYear && r.w === isoWeek);
-  const lastWeekRow = sd.find(r => r.y === (isoWeek === 1 ? isoYear - 1 : isoYear) && r.w === (isoWeek === 1 ? 52 : isoWeek - 1))
-    || sd.filter(r => r.d < currentMonday.toISOString().slice(0,10)).slice(-1)[0];
-  const prevWeekRow = (() => {
-    const lwk = lastWeekRow?.w;
-    const lyr = lastWeekRow?.y;
-    if (!lwk) return sd[sd.length-3];
-    return sd.find(r => r.y === (lwk === 1 ? lyr - 1 : lyr) && r.w === (lwk === 1 ? 52 : lwk - 1))
-      || sd.filter(r => r.d < lastWeekRow.d).slice(-1)[0];
-  })();
+  const thisWeekRow = sd.find(function(r) { return r.y === isoYear && r.w === isoWeek; });
+  const lastWeekRow = sd.find(function(r) { return r.y === prevWkYear && r.w === prevWkNum; })
+    || sd.filter(function(r) { return r.d < currentMondayStr; }).slice(-1)[0]
+    || sd[sd.length - 2];
+  const prevPrevWkNum = prevWkNum === 1 ? 52 : prevWkNum - 1;
+  const prevPrevWkYear = prevWkNum === 1 ? prevWkYear - 1 : prevWkYear;
+  const prevWeekRow = sd.find(function(r) { return r.y === prevPrevWkYear && r.w === prevPrevWkNum; })
+    || (lastWeekRow ? sd.filter(function(r) { return r.d < lastWeekRow.d; }).slice(-1)[0] : null)
+    || sd[sd.length - 3];
 
-  const latest = thisWeekRow || sd[sd.length-1];
-  const prev = lastWeekRow || sd[sd.length-2];
-  const prevPrev = prevWeekRow || sd[sd.length-3];
-  const lInv = id[id.length-1];
+  const latest = thisWeekRow || sd[sd.length - 1];
+  const prev = lastWeekRow || sd[sd.length - 2];
+  const prevPrev = prevWeekRow || sd[sd.length - 3];
+  const lInv = id[id.length - 1];
   
   // Last week vs previous week %
-  const wkChg = prevPrev?.c > 0 ? ((prev.c - prevPrev.c) / prevPrev.c * 100) : 0;
+  const wkChg = prevPrev && prevPrev.c > 0 ? ((prev.c - prevPrev.c) / prevPrev.c * 100) : 0;
   
   // Last week vs same week last year
-  const lastWkYoy = useMemo(() => {
-    const target = sd.find(r => r.y === prev.y - 1 && r.w === prev.w);
+  const lastWkYoy = useMemo(function() {
+    if (!prev) return null;
+    const target = sd.find(function(r) { return r.y === prev.y - 1 && r.w === prev.w; });
     return target ? { pct: ((prev.c - target.c) / target.c * 100), val: target.c } : null;
   }, []);
 
   // This week forecast — use 8-week forecast for current week, fallback to history
-  const fcThisWk = (() => {
-    const fw = FORECAST_8WK.find(w => w[1] === isoWeek);
-    if (fw && fw[2] > 0) return fw[2];
-    return currentForecast || (fd.length > 0 ? fd[fd.length-1]?.fc : 0);
-  })();
+  const _fwMatch = FORECAST_8WK.find(function(w) { return w[1] === isoWeek; });
+  const fcThisWk = (_fwMatch && _fwMatch[2] > 0) ? _fwMatch[2] : (currentForecast || (fd.length > 0 ? fd[fd.length-1].fc : 0));
   // 8-week forecast from iSupply (automation populates this)
   // Format: [[date, weekNum, forecastCases], ...]
   const FORECAST_8WK = [["16/02/2026",8,688],["23/02/2026",9,1003],["02/03/2026",10,1143],["09/03/2026",11,1094],["16/03/2026",12,1112],["23/03/2026",13,995],["30/03/2026",14,538],["06/04/2026",15,287]];
@@ -287,7 +283,7 @@ function Dashboard() {
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{color:C.txm,fontSize:12,fontWeight:600}}>Week {isoWeek}, {isoYear}</div>
-            <div style={{color:C.txd,fontSize:11}}>Monday {currentMonday.getDate()} {["January","February","March","April","May","June","July","August","September","October","November","December"][currentMonday.getMonth()]} {currentMonday.getFullYear()}</div>
+            <div style={{color:C.txd,fontSize:11}}>Monday {currentMondayDate.getDate()} {["January","February","March","April","May","June","July","August","September","October","November","December"][currentMondayDate.getMonth()]} {currentMondayDate.getFullYear()}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:0,flexWrap:"wrap"}}>
