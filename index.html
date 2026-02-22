@@ -157,48 +157,22 @@ function Dashboard() {
   const [sp, setSp] = useState("all");
   const [detail, setDetail] = useState(null);
 
-  // Determine current week from actual calendar date
-  const now = new Date();
-  const _d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  _d.setUTCDate(_d.getUTCDate() + 4 - (_d.getUTCDay() || 7));
-  const _yearStart = new Date(Date.UTC(_d.getUTCFullYear(), 0, 1));
-  const isoWeek = Math.ceil((((_d.getTime() - _yearStart.getTime()) / 86400000) + 1) / 7);
-  const isoYear = now.getFullYear();
-  const dayOfWeek = (now.getDay() + 6) % 7; // 0=Mon, 6=Sun
-  const currentMondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
-  const currentMondayStr = currentMondayDate.toISOString().slice(0, 10);
-  const prevWkNum = isoWeek === 1 ? 52 : isoWeek - 1;
-  const prevWkYear = isoWeek === 1 ? isoYear - 1 : isoYear;
-
-  // Find data rows by actual week logic
-  const thisWeekRow = sd.find(function(r) { return r.y === isoYear && r.w === isoWeek; });
-  const lastWeekRow = sd.find(function(r) { return r.y === prevWkYear && r.w === prevWkNum; })
-    || sd.filter(function(r) { return r.d < currentMondayStr; }).slice(-1)[0]
-    || sd[sd.length - 2];
-  const prevPrevWkNum = prevWkNum === 1 ? 52 : prevWkNum - 1;
-  const prevPrevWkYear = prevWkNum === 1 ? prevWkYear - 1 : prevWkYear;
-  const prevWeekRow = sd.find(function(r) { return r.y === prevPrevWkYear && r.w === prevPrevWkNum; })
-    || (lastWeekRow ? sd.filter(function(r) { return r.d < lastWeekRow.d; }).slice(-1)[0] : null)
-    || sd[sd.length - 3];
-
-  const latest = thisWeekRow || sd[sd.length - 1];
-  const prev = lastWeekRow || sd[sd.length - 2];
-  const prevPrev = prevWeekRow || sd[sd.length - 3];
-  const lInv = id[id.length - 1];
+  const latest = sd[sd.length-1];
+  const prev = sd.find(r => r.w === latest.w - 1 && r.y === latest.y) || sd.find(r => r.w === 52 && r.y === latest.y - 1) || sd[sd.length-2];
+  const prevPrev = prev ? (sd.find(r => r.w === prev.w - 1 && r.y === prev.y) || sd.find(r => r.w === 52 && r.y === prev.y - 1) || sd[sd.length-3]) : sd[sd.length-3];
+  const lInv = id[id.length-1];
   
   // Last week vs previous week %
-  const wkChg = prevPrev && prevPrev.c > 0 ? ((prev.c - prevPrev.c) / prevPrev.c * 100) : 0;
+  const wkChg = prevPrev?.c > 0 ? ((prev.c - prevPrev.c) / prevPrev.c * 100) : 0;
   
   // Last week vs same week last year
-  const lastWkYoy = useMemo(function() {
-    if (!prev) return null;
-    const target = sd.find(function(r) { return r.y === prev.y - 1 && r.w === prev.w; });
+  const lastWkYoy = useMemo(() => {
+    const target = sd.find(r => r.y === prev.y - 1 && r.w === prev.w);
     return target ? { pct: ((prev.c - target.c) / target.c * 100), val: target.c } : null;
   }, []);
 
-  // This week forecast — use 8-week forecast for current week, fallback to history
-  const _fwMatch = FORECAST_8WK.find(function(w) { return w[1] === isoWeek; });
-  const fcThisWk = (_fwMatch && _fwMatch[2] > 0) ? _fwMatch[2] : (currentForecast || (fd.length > 0 ? fd[fd.length-1].fc : 0));
+  // This week forecast
+  const fcThisWk = fd.length > 0 ? fd[fd.length-1]?.fc : 0;
   // 8-week forecast from iSupply (automation populates this)
   // Format: [[date, weekNum, forecastCases], ...]
   const FORECAST_8WK = [["16/02/2026",8,688],["23/02/2026",9,1003],["02/03/2026",10,1143],["09/03/2026",11,1094],["16/03/2026",12,1112],["23/03/2026",13,995],["30/03/2026",14,538],["06/04/2026",15,287]];
@@ -282,8 +256,8 @@ function Dashboard() {
             </div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{color:C.txm,fontSize:12,fontWeight:600}}>Week {isoWeek}, {isoYear}</div>
-            <div style={{color:C.txd,fontSize:11}}>Monday {currentMondayDate.getDate()} {["January","February","March","April","May","June","July","August","September","October","November","December"][currentMondayDate.getMonth()]} {currentMondayDate.getFullYear()}</div>
+            <div style={{color:C.txm,fontSize:12,fontWeight:600}}>Week {FORECAST_8WK[0]?.[1] || latest.w}, {latest.y}</div>
+            <div style={{color:C.txd,fontSize:11}}>{FORECAST_8WK[0]?.[0] ? "w/c " + FORECAST_8WK[0][0] : fDLong(latest.d)}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:0,flexWrap:"wrap"}}>
@@ -302,12 +276,12 @@ function Dashboard() {
       {/* ═══ OVERVIEW ═══ */}
       {tab==="Overview" && (<>
         <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:24}}>
-          <Stat l="This Week So Far" v={fN(latest.c)} s={`Week ${isoWeek} ${latest.w === isoWeek ? '(partial)' : '(awaiting data)'}`} c={C.brand}
+          <Stat l="This Week So Far" v={fN(latest.c)} s={`Week ${latest.w} (partial)`} c={C.brand}
             onClick={()=>setTab("Sales")}/>
           <Stat l="Last Week" v={fN(prev?.c)} s={`Week ${prev?.w} completed`} c={C.tx}
             t={wkChg} yoy={lastWkYoy?.pct}
             onClick={()=>setTab("Sales")}/>
-          <Stat l="Forecast This Week" v={fN(fcThisWk)} s={`Week ${isoWeek} forecast`} c={C.amb}
+          <Stat l="Forecast This Week" v={fN(currentForecast)} s={`Week ${FORECAST_8WK[0]?.[1] || latest.w} forecast`} c={C.amb}
             onClick={()=>setTab("Forecast")}/>
           <Stat l="Stock" v={fN(lInv?.tot)} s={`${(lInv?.tot/CPP).toFixed(1)} pallets · ${fD(lInv?.d)}`} c={C.teal}
             onClick={()=>setTab("Inventory")}/>
@@ -446,7 +420,7 @@ function Dashboard() {
             <LineChart data={yoy}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.bdr} vertical={false}/>
               <XAxis dataKey="week" tick={ax} label={{value:"Week Number",position:"insideBottom",offset:-5,style:{fill:C.txd,fontSize:10}}}/>
-              <YAxis tick={ax} width={45} domain={[0, 'auto']}/>
+              <YAxis tick={ax} width={45} domain={[0, "auto"]}/>
               <Tooltip content={<TT/>}/>
               <Legend wrapperStyle={{fontSize:11}}/>
               {years.filter(y=>y>=2022).map((y,i) => {
