@@ -158,8 +158,8 @@ function Dashboard() {
   const [detail, setDetail] = useState(null);
 
   const latest = sd[sd.length-1];
-  const prev = sd.find(r => r.w === latest.w - 1 && r.y === latest.y) || sd.find(r => r.w === 52 && r.y === latest.y - 1) || sd[sd.length-2];
-  const prevPrev = prev ? (sd.find(r => r.w === prev.w - 1 && r.y === prev.y) || sd.find(r => r.w === 52 && r.y === prev.y - 1) || sd[sd.length-3]) : sd[sd.length-3];
+  const prev = sd[sd.length-2];
+  const prevPrev = sd[sd.length-3];
   const lInv = id[id.length-1];
   
   // Last week vs previous week %
@@ -256,8 +256,8 @@ function Dashboard() {
             </div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{color:C.txm,fontSize:12,fontWeight:600}}>Week {FORECAST_8WK[0]?.[1] || latest.w}, {latest.y}</div>
-            <div style={{color:C.txd,fontSize:11}}>{FORECAST_8WK[0]?.[0] ? "w/c " + FORECAST_8WK[0][0] : fDLong(latest.d)}</div>
+            <div style={{color:C.txm,fontSize:12,fontWeight:600}}>Week {latest.w}, {latest.y}</div>
+            <div style={{color:C.txd,fontSize:11}}>{fDLong(latest.d)}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:0,flexWrap:"wrap"}}>
@@ -281,7 +281,7 @@ function Dashboard() {
           <Stat l="Last Week" v={fN(prev?.c)} s={`Week ${prev?.w} completed`} c={C.tx}
             t={wkChg} yoy={lastWkYoy?.pct}
             onClick={()=>setTab("Sales")}/>
-          <Stat l="Forecast This Week" v={fN(currentForecast)} s={`Week ${FORECAST_8WK[0]?.[1] || latest.w} forecast`} c={C.amb}
+          <Stat l="Forecast This Week" v={fN(currentForecast)} s={`Week ${latest.w} forecast`} c={C.amb}
             onClick={()=>setTab("Forecast")}/>
           <Stat l="Stock" v={fN(lInv?.tot)} s={`${(lInv?.tot/CPP).toFixed(1)} pallets · ${fD(lInv?.d)}`} c={C.teal}
             onClick={()=>setTab("Inventory")}/>
@@ -420,7 +420,7 @@ function Dashboard() {
             <LineChart data={yoy}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.bdr} vertical={false}/>
               <XAxis dataKey="week" tick={ax} label={{value:"Week Number",position:"insideBottom",offset:-5,style:{fill:C.txd,fontSize:10}}}/>
-              <YAxis tick={ax} width={45} domain={[0, "auto"]}/>
+              <YAxis tick={ax} width={45}/>
               <Tooltip content={<TT/>}/>
               <Legend wrapperStyle={{fontSize:11}}/>
               {years.filter(y=>y>=2022).map((y,i) => {
